@@ -1,0 +1,365 @@
+import React, { useState, useEffect } from "react";
+import { ScrollView, Text, View, TextInput, TouchableOpacity, FlatList, Pressable, ActivityIndicator } from "react-native";
+import { ScreenContainer } from "@/components/screen-container";
+import { useColors } from "@/hooks/use-colors";
+import * as Haptics from "expo-haptics";
+
+// Types
+interface User {
+  username: string;
+  isOnline: boolean;
+}
+
+interface Message {
+  from: string;
+  text: string;
+  time: number;
+}
+
+type Screen = "login" | "contacts" | "chat";
+
+export default function HomeScreen() {
+  const colors = useColors();
+  
+  // State
+  const [currentScreen, setCurrentScreen] = useState<Screen>("login");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [loginError, setLoginError] = useState("");
+  const [currentUser, setCurrentUser] = useState<string | null>(null);
+  const [users, setUsers] = useState<User[]>([]);
+  const [currentChat, setCurrentChat] = useState<string | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [messageInput, setMessageInput] = useState("");
+  const [isConnected, setIsConnected] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // WebSocket connection
+  useEffect(() => {
+    // Simulated WebSocket connection
+    // In production, this would connect to the actual server
+    const connectToServer = async () => {
+      try {
+        setIsConnected(true);
+      } catch (error) {
+        console.error("Connection error:", error);
+        setIsConnected(false);
+      }
+    };
+
+    connectToServer();
+
+    return () => {
+      // Cleanup
+    };
+  }, []);
+
+  // Login handler
+  const handleLogin = async () => {
+    setLoginError("");
+    
+    if (!username.trim() || !password.trim()) {
+      setLoginError("يرجى إدخال اسم المستخدم وكلمة المرور");
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      return;
+    }
+
+    if (username.length < 2 || username.length > 20) {
+      setLoginError("اسم المستخدم يجب أن يكون بين 2 و 20 حرف");
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      return;
+    }
+
+    if (password.length > 50) {
+      setLoginError("كلمة المرور طويلة جداً");
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      return;
+    }
+
+    setIsLoading(true);
+    
+    try {
+      // Simulate login
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      setCurrentUser(username);
+      setCurrentScreen("contacts");
+      
+      // Simulate fetching users
+      const mockUsers: User[] = [
+        { username: "أحمد", isOnline: true },
+        { username: "محمد", isOnline: true },
+        { username: "علي", isOnline: false },
+        { username: "سارة", isOnline: true },
+      ].filter(u => u.username !== username);
+      
+      setUsers(mockUsers);
+      
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (error) {
+      setLoginError("خطأ في الاتصال بالخادم");
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Start chat handler
+  const handleStartChat = async (partner: string) => {
+    setCurrentChat(partner);
+    setCurrentScreen("chat");
+    setMessages([]);
+    
+    // Simulate loading messages
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    const mockMessages: Message[] = [
+      { from: "أحمد", text: "السلام عليكم", time: Date.now() - 60000 },
+      { from: currentUser!, text: "وعليكم السلام", time: Date.now() - 50000 },
+      { from: "أحمد", text: "كيف حالك؟", time: Date.now() - 40000 },
+    ];
+    
+    setMessages(mockMessages);
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  // Send message handler
+  const handleSendMessage = async () => {
+    if (!messageInput.trim() || !currentUser || !currentChat) return;
+
+    if (messageInput.length > 1000) {
+      setLoginError("الرسالة طويلة جداً");
+      return;
+    }
+
+    const newMessage: Message = {
+      from: currentUser,
+      text: messageInput,
+      time: Date.now(),
+    };
+
+    setMessages([...messages, newMessage]);
+    setMessageInput("");
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  // Logout handler
+  const handleLogout = async () => {
+    setCurrentUser(null);
+    setCurrentScreen("login");
+    setUsername("");
+    setPassword("");
+    setUsers([]);
+    setMessages([]);
+    setCurrentChat(null);
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  };
+
+  // Go back handler
+  const handleGoBack = () => {
+    setCurrentScreen("contacts");
+    setCurrentChat(null);
+    setMessages([]);
+    setMessageInput("");
+  };
+
+  // Render login screen
+  if (currentScreen === "login") {
+    return (
+      <ScreenContainer className="p-6 justify-center" containerClassName="bg-background">
+        <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: "center" }}>
+          <View className="gap-6">
+            {/* Header */}
+            <View className="items-center gap-2">
+              <Text className="text-4xl font-bold text-foreground">💬</Text>
+              <Text className="text-2xl font-bold text-foreground">الفتيان</Text>
+              <Text className="text-sm text-muted">مراسلة آمنة وسريعة</Text>
+            </View>
+
+            {/* Username Input */}
+            <TextInput
+              placeholder="اسم المستخدم"
+              value={username}
+              onChangeText={setUsername}
+              placeholderTextColor={colors.muted}
+              className="px-4 py-3 bg-surface border border-border rounded-2xl text-foreground"
+              maxLength={20}
+              editable={!isLoading}
+            />
+
+            {/* Password Input */}
+            <TextInput
+              placeholder="كلمة المرور"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+              placeholderTextColor={colors.muted}
+              className="px-4 py-3 bg-surface border border-border rounded-2xl text-foreground"
+              maxLength={50}
+              editable={!isLoading}
+            />
+
+            {/* Error Message */}
+            {loginError ? (
+              <Text className="text-error text-sm text-center">{loginError}</Text>
+            ) : null}
+
+            {/* Login Button */}
+            <Pressable
+              onPress={handleLogin}
+              disabled={isLoading}
+              style={({ pressed }) => [
+                { backgroundColor: colors.primary },
+                pressed && { opacity: 0.8, transform: [{ scale: 0.97 }] },
+              ]}
+              className="py-3 rounded-2xl items-center"
+            >
+              {isLoading ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <Text className="text-white font-bold text-base">دخول</Text>
+              )}
+            </Pressable>
+          </View>
+        </ScrollView>
+      </ScreenContainer>
+    );
+  }
+
+  // Render contacts screen
+  if (currentScreen === "contacts") {
+    return (
+      <ScreenContainer className="bg-background" containerClassName="bg-background">
+        {/* Header */}
+        <View className="bg-primary px-4 py-4 flex-row justify-between items-center">
+          <Text className="text-white font-bold">{currentUser}</Text>
+          <Pressable
+            onPress={handleLogout}
+            style={({ pressed }) => [pressed && { opacity: 0.7 }]}
+            className="bg-error px-3 py-2 rounded-full"
+          >
+            <Text className="text-white text-xs font-bold">خروج</Text>
+          </Pressable>
+        </View>
+
+        {/* Contacts List */}
+        <FlatList
+          data={users}
+          keyExtractor={(item) => item.username}
+          contentContainerStyle={{ padding: 12, gap: 8 }}
+          renderItem={({ item }) => (
+            <Pressable
+              onPress={() => handleStartChat(item.username)}
+              style={({ pressed }) => [pressed && { opacity: 0.7 }]}
+              className="bg-surface rounded-2xl p-3 flex-row items-center gap-3"
+            >
+              {/* Avatar */}
+              <View className="w-11 h-11 bg-primary rounded-xl items-center justify-center">
+                <Text className="text-white font-bold text-base">
+                  {item.username.charAt(0)}
+                </Text>
+              </View>
+
+              {/* Name */}
+              <View className="flex-1">
+                <Text className="text-foreground font-semibold">{item.username}</Text>
+              </View>
+
+              {/* Online Indicator */}
+              <View
+                className="w-2.5 h-2.5 rounded-full"
+                style={{
+                  backgroundColor: item.isOnline ? "#2ecc71" : "#cbd5e1",
+                }}
+              />
+            </Pressable>
+          )}
+          ListEmptyComponent={
+            <View className="flex-1 items-center justify-center">
+              <Text className="text-muted">لا توجد جهات اتصال</Text>
+            </View>
+          }
+        />
+      </ScreenContainer>
+    );
+  }
+
+  // Render chat screen
+  if (currentScreen === "chat") {
+    return (
+      <ScreenContainer className="bg-background" containerClassName="bg-background">
+        {/* Chat Header */}
+        <View className="bg-primary px-4 py-3 flex-row items-center gap-3">
+          <Pressable
+            onPress={handleGoBack}
+            style={({ pressed }) => [pressed && { opacity: 0.7 }]}
+          >
+            <Text className="text-white text-xl">←</Text>
+          </Pressable>
+          <Text className="text-white font-bold flex-1">{currentChat}</Text>
+        </View>
+
+        {/* Messages */}
+        <FlatList
+          data={messages}
+          keyExtractor={(item, index) => index.toString()}
+          contentContainerStyle={{ padding: 12, gap: 8 }}
+          renderItem={({ item }) => (
+            <View
+              className={`max-w-xs px-4 py-2 rounded-2xl ${
+                item.from === currentUser
+                  ? "bg-primary self-end"
+                  : "bg-surface self-start"
+              }`}
+            >
+              <Text
+                className={`${
+                  item.from === currentUser ? "text-white" : "text-foreground"
+                }`}
+              >
+                {item.text}
+              </Text>
+              <Text
+                className={`text-xs mt-1 ${
+                  item.from === currentUser
+                    ? "text-white opacity-70"
+                    : "text-muted"
+                }`}
+              >
+                {new Date(item.time).toLocaleTimeString("ar-SA", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </Text>
+            </View>
+          )}
+        />
+
+        {/* Message Input */}
+        <View className="bg-surface px-3 py-3 flex-row items-center gap-2 border-t border-border">
+          <TextInput
+            placeholder="اكتب رسالة..."
+            value={messageInput}
+            onChangeText={setMessageInput}
+            placeholderTextColor={colors.muted}
+            className="flex-1 px-4 py-2 bg-background border border-border rounded-2xl text-foreground"
+            maxLength={1000}
+          />
+          <Pressable
+            onPress={handleSendMessage}
+            disabled={!messageInput.trim()}
+            style={({ pressed }) => [
+              { backgroundColor: colors.primary },
+              pressed && { opacity: 0.8, transform: [{ scale: 0.95 }] },
+            ]}
+            className="w-10 h-10 rounded-full items-center justify-center"
+          >
+            <Text className="text-white text-lg">➤</Text>
+          </Pressable>
+        </View>
+      </ScreenContainer>
+    );
+  }
+
+  return null;
+}
